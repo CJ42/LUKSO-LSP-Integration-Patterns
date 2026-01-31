@@ -1,6 +1,6 @@
-# LUKSO LSP Recipes
+# LUKSO LSP Integrations & Patterns
 
-> TODO: description
+Solidity code examples of how to use the LUKSO LSP smart contracts and ideas of what can be built with them.
 
 ## Getting started
 
