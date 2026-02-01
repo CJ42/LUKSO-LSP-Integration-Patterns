@@ -33,6 +33,8 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate {
 
     address public constant UNIVERSAL_SWAP_UNIVERSAL_ROUTER = 0x6EDaC58326277F1Baf277C41740Db1ff8d7ab13c;
 
+    address public constant UNIVERSAL_SWAP_FEE_SPLITTER = 0xC514AC83d6EcC7Ddc9Cd23b353371934d285b36a;
+
     address public constant WLYX1 = 0x2dB41674F2b882889e5E1Bd09a3f3613952bC472;
 
     address public constant STAKINGVERSE_SLYX_TOKEN = 0x8A3982f0A7d154D11a5f43EEc7F50E52eBBc8F7D;
@@ -56,15 +58,25 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate {
         // callback the Universal Profile via `execute(...)` and call the UniversalRouter to perform the swap
         address userUniversalProfile = msg.sender;
 
-        // commands: 2 commands. Each bytes1 corresponds to a `commandType` according to the Uniswap V3 Dispatcher
-        // TODO: define if we also need to do commands for PAY_PORTION and SWEEP
-        bytes memory commands = abi.encodePacked(WRAP_LYX, V3_SWAP_EXACT_IN);
-        bytes[] memory inputs = new bytes[](2);
+        // Commands sent to Universal Router that are then sent to Universal Swap Dispatcher
+        // 1. Wrap native LYX token into WLYX1
+        // 2. Perform the swap
+        // 3. Send fee
+        // 4. Send remaining tokens held by the Universal Router to ensure none are left after the tx is complete
+        bytes memory commands = abi.encodePacked(WRAP_LYX, V3_SWAP_EXACT_IN, PAY_PORTION, SWEEP);
+        bytes[] memory inputs = new bytes[](4);
 
-        // inputs[0] = wrap LYX to WLYX1
+        // ---------------
+        // | 1. WRAP_LYX |
+        // ---------------
+
         // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
-        bytes memory inputsWrapLyx = abi.encode(address(2), value);
-        inputs[0] = inputsWrapLyx;
+        bytes memory wrapLyx = abi.encode(address(2), value);
+        inputs[0] = wrapLyx;
+
+        // --------------------
+        // | 2. SWAP_EXACT_IN |
+        // --------------------
 
         uint256 amountOutMin = ISLYXToken(STAKINGVERSE_SLYX_TOKEN).getSLYXTokenValue(value);
 
@@ -74,31 +86,33 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate {
             STAKINGVERSE_SLYX_TOKEN
         );
 
-        // TODO: define if recipient should be user or Universal Router address
-        // abi.encode(
-        //     recipient, ✅
-        //     amountIn,
-        //     amountOutMin,
-        //     path, -> The encoded route for the swap (e.g: for single hop, address tokenIn, uint24 fee, address
-        // tokenOut). payerIsUser
-        // );
-        bytes memory inputsSwapExactIn = abi.encode(
-            userUniversalProfile, // address recipient
+        // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
+        // TODO: define if get `amountOutMin` should be obtained via SLYXToken conversion or via Universal Swap contract
+        bytes memory swapExactIn = abi.encode(
+            address(2), // recipient
             value, // uint256 amountIn
-            amountOutMin, // uint256, TODO: get `amountOutMin` via SLYXToken conversion or via Universal Swap contract
+            amountOutMin, // uint256,
             singleHopPathEncoding,
             false
         );
-        inputs[1] = inputsSwapExactIn;
+        inputs[1] = swapExactIn;
 
-        // TODO: figure out if needing to pass those
-        // ------------------------------------------
-        // 3 x bytes32
-        // 0x0000000000000000000000008a3982f0a7d154d11a5f43eec7f50e52ebbc8f7d000000000000000000000000c514ac83d6ecc7ddc9cd23b353371934d285b36a00000000000000000000000000000000000000000000000000000000000000c8
-        // 
-        // 3 x bytes32
-        // 0x0000000000000000000000008a3982f0a7d154d11a5f43eec7f50e52ebbc8f7d00000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000bfecae1685bf20d
-        // ------------------------------------------
+        // ------------------
+        // | 3. PAY_PORTION |
+        // ------------------
+
+        bytes memory payPortion = abi.encode(STAKINGVERSE_SLYX_TOKEN, UNIVERSAL_SWAP_FEE_SPLITTER, uint256(200));
+        inputs[2] = payPortion;
+
+        // ------------
+        // | 4. SWEEP |
+        // ------------
+        bytes memory sweep = abi.encode(
+            STAKINGVERSE_SLYX_TOKEN,
+            address(1), // constant state used by the Universal Router (it will be the Universal Profile here)
+            amountOutMin
+        );
+        inputs[3] = sweep;
 
         bytes memory universalRouterExecuteFunctionCall = abi.encodeCall(IUniversalRouter.execute, (commands, inputs));
 

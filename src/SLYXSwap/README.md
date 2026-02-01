@@ -18,6 +18,14 @@ Example for `inputs[0]` = wrap LYX to WLYX1:
 Details of the encoding for `inputsSwapExactIn`
 
 ```
+// abi.encode(
+//     recipient, ✅
+//     amountIn,
+//     amountOutMin,
+//     path, -> The encoded route for the swap (e.g: for single hop, address tokenIn, uint24 fee, address
+// tokenOut). payerIsUser
+// );
+
 // 8 x bytes
 // 1 LYX = 1e18 = de0b6b3a7640000
 // 0x0000000000000000000000000000000000000000000000000000000000000002 -> recipient (address2) for address(this)
@@ -28,4 +36,14 @@ Details of the encoding for `inputsSwapExactIn`
 //   000000000000000000000000000000000000000000000000000000000000002b -> path.length (= 43 bytes, 86 characters)
 //   2db41674f2b882889e5e1bd09a3f3613952bc472 000bb8 8a3982f0a7d154d11a5f43eec7f50e52ebbc8f7d
 //   000000000000000000000000000000000000000000 -> remaining bytes to be multiple of 32 bytes
+```
+
+Pay Portion
+
+```
+// 3 x bytes32
+// 0x0000000000000000000000008a3982f0a7d154d11a5f43eec7f50e52ebbc8f7d -> token
+//   000000000000000000000000c514ac83d6ecc7ddc9cd23b353371934d285b36a -> recipient
+//   00000000000000000000000000000000000000000000000000000000000000c8 -> bips (% in basis points, here 200 bps)
+//
 ```
