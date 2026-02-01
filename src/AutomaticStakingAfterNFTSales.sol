@@ -5,8 +5,9 @@ pragma solidity ^0.8.30;
 import {IERC165} from "@openzeppelin/contracts/interfaces/IERC165.sol";
 import {IERC725X} from "@erc725/smart-contracts/contracts/interfaces/IERC725X.sol";
 import {IERC725Y} from "@erc725/smart-contracts/contracts/interfaces/IERC725Y.sol";
-import {ILSP1UniversalReceiverDelegate as ILSP1Delegate} from
-    "@lukso/lsp1-contracts/contracts/ILSP1UniversalReceiverDelegate.sol";
+import {
+    ILSP1UniversalReceiverDelegate as ILSP1Delegate
+} from "@lukso/lsp1-contracts/contracts/ILSP1UniversalReceiverDelegate.sol";
 
 // libraries
 import {LSP2Utils} from "@lukso/lsp2-contracts/contracts/LSP2Utils.sol";
@@ -33,7 +34,7 @@ interface IStakingverseVault {
     function deposit(address beneficiary) external payable;
 }
 
-/// @dev This contract automatically stakes LYX in Stakingverse's Vault
+/// @dev This contract automatically converts LYX reci in Stakingverse's Vault
 /// when receiving LYX from new NFT sales from Universal.Page
 ///
 /// It can be setup by setting the address of this contract as value under the data key
@@ -88,7 +89,13 @@ contract AutomaticStakingAfterNFTSales is IERC165, ILSP1Delegate {
             LSP2Utils.generateMappingKey(_LSP1_UNIVERSAL_RECEIVER_DELEGATE_PREFIX, bytes20(address(this)));
     }
 
-    function universalReceiverDelegate(address sender, uint256 value, bytes32, /* typeId */ bytes memory /* data */ )
+    function universalReceiverDelegate(
+        address sender,
+        uint256 value,
+        bytes32,
+        /* typeId */
+        bytes memory /* data */
+    )
         external
         returns (bytes memory)
     {
@@ -105,9 +112,8 @@ contract AutomaticStakingAfterNFTSales is IERC165, ILSP1Delegate {
 
         bytes memory vaultDepositCalldata = abi.encodeCall(IStakingverseVault.deposit, (userUniversalProfile));
 
-        try IERC725X(userUniversalProfile).execute(
-            OPERATION_0_CALL, STAKINGVERSE_VAULT_CONTRACT, value, vaultDepositCalldata
-        ) {
+        try IERC725X(userUniversalProfile)
+            .execute(OPERATION_0_CALL, STAKINGVERSE_VAULT_CONTRACT, value, vaultDepositCalldata) {
             // Successfully staked LYX
             return unicode"✅ LYX received from NFT sale staked successfully";
         } catch (bytes memory error) {
