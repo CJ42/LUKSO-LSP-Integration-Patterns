@@ -5,6 +5,7 @@ pragma solidity ^0.8.30;
 import {LSP2Utils} from "@lukso/lsp2-contracts/contracts/LSP2Utils.sol";
 
 // constants
+import {_TYPEID_LSP0_VALUE_RECEIVED} from "@lukso/lsp0-contracts/contracts/LSP0Constants.sol";
 import {_LSP1_UNIVERSAL_RECEIVER_DELEGATE_PREFIX} from "@lukso/lsp1-contracts/contracts/LSP1Constants.sol";
 import {
     _LSP6KEY_ADDRESSPERMISSIONS_PERMISSIONS_PREFIX,
@@ -33,8 +34,9 @@ abstract contract DataKeysValuesConfig {
         bytes[] memory dataValuesConfig = new bytes[](3);
 
         // LSP1UniversalReceiverDelegate:<_TYPEID_LSP0_VALUE_RECEIVED>
-        dataKeysConfig[0] =
-            LSP2Utils.generateMappingKey(_LSP1_UNIVERSAL_RECEIVER_DELEGATE_PREFIX, bytes20(address(this)));
+        dataKeysConfig[0] = LSP2Utils.generateMappingKey(
+            _LSP1_UNIVERSAL_RECEIVER_DELEGATE_PREFIX, bytes20(_TYPEID_LSP0_VALUE_RECEIVED)
+        );
         dataValuesConfig[0] = abi.encodePacked(address(this));
 
         // AddressPermissions:Permissions:<swapper-contract-address>
@@ -62,9 +64,10 @@ abstract contract DataKeysValuesConfig {
     /// - IUniversalRouter.execute.selector -> execute(bytes,bytes[])
     function _encodeAllowedCallsDataValueConfig() internal pure returns (bytes memory) {
         return abi.encodePacked(
-            hex"0020",
+            bytes2(0x0020),
             _ALLOWEDCALLS_TRANSFERVALUE | _ALLOWEDCALLS_CALL, // 00000003
             UNIVERSAL_SWAP_UNIVERSAL_ROUTER,
+            bytes4(0xffffffff),
             IUniversalRouter.execute.selector
         );
     }

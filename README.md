@@ -35,10 +35,12 @@ bun run build
 
 The contract ABIs will placed under the `artifacts/` folder.
 
-### Test
+### Testing with mainnet fork
+
+The best way to test these LSP integrations is to write the Foundry tests with addresses of contracts and user's Universal Profile from LUKSO Mainnet and perform the tests with Foundry mainnet fork testing mode.
 
 ```shell
-bun run test
+forge test --fork-url https://rpc.mainnet.lukso.network --match-contract AutomaticSLYXSwapAfterNFTSalesTest
 ```
 
 ### Format Solidity code
@@ -62,14 +64,13 @@ $ anvil
 ```
 -->
 
-
 ## Documentation
 
 This template repository is based on Foundry, **a blazing fast, portable and modular toolkit for EVM application development written in Rust.** It includes:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
+- **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
+- **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
+- **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
 You can find more documentation at: https://book.getfoundry.sh/

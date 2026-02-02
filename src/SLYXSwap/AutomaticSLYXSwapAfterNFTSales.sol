@@ -43,9 +43,12 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate, DataKeysValue
 
     address public constant STAKINGVERSE_SLYX_TOKEN = 0x8A3982f0A7d154D11a5f43EEc7F50E52eBBc8F7D;
 
+    event AutoSwapPerformed();
+    event AutoSwapFailed();
+
     function universalReceiverDelegate(
         address sender,
-        uint256 value,
+        uint256 valueReceived,
         bytes32,
         /* typeId */
         bytes memory /* data */
@@ -55,7 +58,7 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate, DataKeysValue
     {
         // CHECK that we received money from the `LSP7/LSP8Marketplace` contract from UniversalPage
         // https://github.com/Universal-Page/contracts/blob/91893d701ef041a8a4f9d83b69d5b04da4dc9789/src/marketplace/lsp8/LSP8Marketplace.sol#L185
-        if (sender != UNIVERSAL_PAGE_LSP7_MARKETPLACE_CONTRACT || sender != UNIVERSAL_PAGE_LSP8_MARKETPLACE_CONTRACT) {
+        if (sender != UNIVERSAL_PAGE_LSP7_MARKETPLACE_CONTRACT && sender != UNIVERSAL_PAGE_LSP8_MARKETPLACE_CONTRACT) {
             return "Error: Sender not Universal.Page Marketplace contracts.";
         }
 
@@ -70,60 +73,70 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate, DataKeysValue
         bytes memory commands = abi.encodePacked(WRAP_LYX, V3_SWAP_EXACT_IN, PAY_PORTION, SWEEP);
         bytes[] memory inputs = new bytes[](4);
 
-        // ---------------
-        // | 1. WRAP_LYX |
-        // ---------------
+        {
 
-        // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
-        bytes memory wrapLyx = abi.encode(address(2), value);
-        inputs[0] = wrapLyx;
+            // ---------------
+            // | 1. WRAP_LYX |
+            // ---------------
 
-        // --------------------
-        // | 2. SWAP_EXACT_IN |
-        // --------------------
+            // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
+            bytes memory wrapLyx = abi.encode(address(2), valueReceived);
+            inputs[0] = wrapLyx;
 
-        uint256 amountOutMin = ISLYXToken(STAKINGVERSE_SLYX_TOKEN).getSLYXTokenValue(value);
+            // --------------------
+            // | 2. SWAP_EXACT_IN |
+            // --------------------
 
-        bytes memory singleHopPathEncoding = abi.encodePacked(
-            WLYX1,
-            uint24(3000), // 0.3% in basis points
-            STAKINGVERSE_SLYX_TOKEN
-        );
+            uint256 theoreticalAmountOut = ISLYXToken(STAKINGVERSE_SLYX_TOKEN).getSLYXTokenValue(valueReceived);
+            uint256 amountOutMin = (theoreticalAmountOut * 95) / 100; // accept a slippage tolerance of 5%
 
-        // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
-        // TODO: define if get `amountOutMin` should be obtained via SLYXToken conversion or via Universal Swap contract
-        bytes memory swapExactIn = abi.encode(
-            address(2), // recipient
-            value, // uint256 amountIn
-            amountOutMin, // uint256,
-            singleHopPathEncoding,
-            false
-        );
-        inputs[1] = swapExactIn;
+            bytes memory singleHopPathEncoding = abi.encodePacked(
+                WLYX1,
+                uint24(3000), // 0.3% in basis points
+                STAKINGVERSE_SLYX_TOKEN
+            );
 
-        // ------------------
-        // | 3. PAY_PORTION |
-        // ------------------
+            // address(2) is used as a flag for identifying address(this), saves gas by sending more 0 bytes
+            // TODO: define if get `amountOutMin` should be obtained via SLYXToken conversion or via Universal Swap
+            // contract
+            bytes memory swapExactIn = abi.encode(
+                address(2), // recipient
+                valueReceived, // uint256 amountIn
+                amountOutMin, // uint256,
+                singleHopPathEncoding,
+                false
+            );
+            inputs[1] = swapExactIn;
 
-        bytes memory payPortion = abi.encode(STAKINGVERSE_SLYX_TOKEN, UNIVERSAL_SWAP_FEE_SPLITTER, uint256(200));
-        inputs[2] = payPortion;
+            // ------------------
+            // | 3. PAY_PORTION |
+            // ------------------
 
-        // ------------
-        // | 4. SWEEP |
-        // ------------
-        bytes memory sweep = abi.encode(
-            STAKINGVERSE_SLYX_TOKEN,
-            address(1), // constant state used by the Universal Router (it will be the Universal Profile here)
-            amountOutMin
-        );
-        inputs[3] = sweep;
+            bytes memory payPortion = abi.encode(STAKINGVERSE_SLYX_TOKEN, UNIVERSAL_SWAP_FEE_SPLITTER, uint256(200));
+            inputs[2] = payPortion;
+
+            // ------------
+            // | 4. SWEEP |
+            // ------------
+            bytes memory sweep = abi.encode(
+                STAKINGVERSE_SLYX_TOKEN,
+                address(1), // constant state used by the Universal Router (it will be the Universal Profile here)
+                // amountOutMin
+                uint256(1)
+            );
+            inputs[3] = sweep;
+        }
 
         bytes memory universalRouterExecuteFunctionCall = abi.encodeCall(IUniversalRouter.execute, (commands, inputs));
 
         try IERC725X(userUniversalProfile)
-            .execute(OPERATION_0_CALL, UNIVERSAL_SWAP_UNIVERSAL_ROUTER, 0, universalRouterExecuteFunctionCall) {
+            .execute(
+                OPERATION_0_CALL, UNIVERSAL_SWAP_UNIVERSAL_ROUTER, valueReceived, universalRouterExecuteFunctionCall
+            ) {
+            emit AutoSwapPerformed();
             return unicode"🪙🔄✅ Successfully swapped LYX for SLYX on Universal Swap 🛸";
         } catch {
+            emit AutoSwapFailed();
             return unicode"🪙🔄❌ Failed to swap LYX for SLYX on Universal Swap 🛸";
         }
     }
