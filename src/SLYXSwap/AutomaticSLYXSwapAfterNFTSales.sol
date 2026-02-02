@@ -8,6 +8,9 @@ import {
     ILSP1UniversalReceiverDelegate as ILSP1Delegate
 } from "@lukso/lsp1-contracts/contracts/ILSP1UniversalReceiverDelegate.sol";
 
+// modules
+import {DataKeysValuesConfig} from "./DataKeysValuesConfig.sol";
+
 // constants
 import {OPERATION_0_CALL} from "@erc725/smart-contracts/contracts/constants.sol";
 import {_INTERFACEID_LSP1_DELEGATE} from "@lukso/lsp1-contracts/contracts/LSP1Constants.sol";
@@ -26,9 +29,10 @@ interface IUniversalRouter {
     function execute(bytes calldata commands, bytes[] calldata inputs) external payable;
 }
 
-contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate {
-    /// @notice Address of the Universal.Page LSP8 Marketplace contract on LUKSO Mainnet.
+contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate, DataKeysValuesConfig {
+    /// @notice Address of the Universal.Page LSP7 + LSP8 Marketplace contract on LUKSO Mainnet.
     /// Responsible for sending LYX to UPs after sales and accepting offers.
+    address public constant UNIVERSAL_PAGE_LSP7_MARKETPLACE_CONTRACT = 0xE04cF97440cD191096C4103f9C48ABd96184fB8D;
     address public constant UNIVERSAL_PAGE_LSP8_MARKETPLACE_CONTRACT = 0x6807c995602EAF523a95A6B97aCC4DA0d3894655;
 
     address public constant UNIVERSAL_SWAP_UNIVERSAL_ROUTER = 0x6EDaC58326277F1Baf277C41740Db1ff8d7ab13c;
@@ -49,10 +53,10 @@ contract AutomaticSLYXSwapAfterNFTSales is IERC165, ILSP1Delegate {
         external
         returns (bytes memory)
     {
-        // CHECK that we received money from the `LSP8Marketplace` contract from UniversalPage
+        // CHECK that we received money from the `LSP7/LSP8Marketplace` contract from UniversalPage
         // https://github.com/Universal-Page/contracts/blob/91893d701ef041a8a4f9d83b69d5b04da4dc9789/src/marketplace/lsp8/LSP8Marketplace.sol#L185
-        if (sender != UNIVERSAL_PAGE_LSP8_MARKETPLACE_CONTRACT) {
-            return "Error: Sender not Universal.Page LSP8Marketplace contract.";
+        if (sender != UNIVERSAL_PAGE_LSP7_MARKETPLACE_CONTRACT || sender != UNIVERSAL_PAGE_LSP8_MARKETPLACE_CONTRACT) {
+            return "Error: Sender not Universal.Page Marketplace contracts.";
         }
 
         // callback the Universal Profile via `execute(...)` and call the UniversalRouter to perform the swap
